@@ -1,47 +1,45 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Portal de Vagas</title>
+  <title>Rastreamento de Entregas</title>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    .vaga { border: 1px solid #ccc; padding: 15px; margin-bottom: 10px; }
-    .vaga h2 { margin: 0; font-size: 18px; }
-    .vaga p { margin: 5px 0; }
-    .botao { background: #007BFF; color: white; padding: 8px 12px; text-decoration: none; border-radius: 4px; }
-    .botao:hover { background: #0056b3; }
+    #map { height: 500px; }
   </style>
 </head>
 <body>
-  <h1>Portal de Vagas</h1>
-  <div id="lista-vagas"></div>
+  <h2>Vagas Express - Rastreamento de Entregas</h2>
+  <div id="map"></div>
 
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    async function carregarVagas() {
-      try {
-        const response = await fetch('vagas.json');
-        const vagas = await response.json();
+    // Inicializa mapa no Rio de Janeiro
+    var map = L.map('map').setView([-22.9068, -43.1729], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: 'Map data © OpenStreetMap'
+    }).addTo(map);
 
-        const container = document.getElementById('lista-vagas');
-        container.innerHTML = '';
+    // Veículos simulados
+    var vehicles = [
+      { id: 1, name: "Caminhão 1", lat: -22.90, lng: -43.17 },
+      { id: 2, name: "Moto 2", lat: -22.92, lng: -43.20 }
+    ];
 
-        vagas.forEach(vaga => {
-          const div = document.createElement('div');
-          div.className = 'vaga';
-          div.innerHTML = `
-            <h2>${vaga.titulo}</h2>
-            <p>Empresa: ${vaga.empresa}</p>
-            <p>Local: ${vaga.local}</p>
-            <a class="botao" href="${vaga.link}" target="_blank">Ver detalhes</a>
-          `;
-          container.appendChild(div);
-        });
-      } catch (error) {
-        console.error("Erro ao carregar vagas:", error);
-      }
-    }
+    // Marcadores
+    var markers = {};
+    vehicles.forEach(v => {
+      markers[v.id] = L.marker([v.lat, v.lng]).addTo(map).bindPopup(v.name);
+    });
 
-    carregarVagas();
+    // Simulação de movimento (rede enviando dados)
+    setInterval(() => {
+      vehicles.forEach(v => {
+        v.lat += (Math.random() - 0.5) * 0.01;
+        v.lng += (Math.random() - 0.5) * 0.01;
+        markers[v.id].setLatLng([v.lat, v.lng]);
+      });
+    }, 2000);
   </script>
 </body>
 </html>
