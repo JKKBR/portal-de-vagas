@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Rastreamento de Entregas</title>
+  <title>Projeto Simulador de Frota</title>
   <meta charset="utf-8" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
+    body { font-family: Arial, sans-serif; }
+    h1 { text-align:center; margin-bottom:5px; }
+    h2 { text-align:center; margin-top:0; font-weight:normal; color:#555; }
     #map { height: 400px; width: 70%; float: left; }
     #painel { width: 28%; float: right; padding: 10px; border-left: 1px solid #ccc; overflow-y: scroll; height: 400px; }
     .veiculo { margin-bottom: 10px; padding: 5px; border: 1px solid #ddd; }
@@ -13,10 +16,24 @@
     #mapStreet { height: 400px; width: 70%; float: left; margin-top:20px; }
     #painelSeguranca { width: 28%; float: right; height: 400px; overflow-y: scroll; border-left:1px solid #ccc; padding:10px; margin-top:20px; }
     #cameraView { width:100%; height:300px; object-fit:cover; border:1px solid #ccc; margin-top:20px; clear:both; }
+    #dashboard { border:1px solid #ccc; padding:10px; margin-top:20px; clear:both; }
+    .custom-icon div {
+      background:#007bff;
+      color:white;
+      border-radius:50%;
+      width:30px;
+      height:30px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:14px;
+      font-weight:bold;
+    }
   </style>
 </head>
 <body>
-  <h2 style="text-align:center;">Simulador de Frota - 20 Veículos</h2>
+  <h1>Projeto Simulador de Frota</h1>
+  <h2>Juntando Redes de Computadores, Logística e CFTV</h2>
   
   <!-- Mapa principal -->
   <div id="map"></div>
@@ -35,21 +52,24 @@
   <h3 style="text-align:center; clear:both;">Câmera Embarcada</h3>
   <img id="cameraView" src="" alt="Câmera embarcada" />
 
+  <!-- Dashboard -->
+  <h3 style="text-align:center; clear:both;">Dashboard Logístico</h3>
+  <div id="dashboard">
+    <p>Total de entregas hoje: <span id="totalEntregas">0</span></p>
+    <p>Total de verificações de segurança: <span id="totalVerificacoes">0</span></p>
+    <p>Tempo médio rodando: <span id="tempoRodando">0</span> s</p>
+    <p>Tempo médio parado: <span id="tempoParado">0</span> s</p>
+  </div>
+
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    // Inicializa mapa principal
+    // Inicializa mapas
     var map = L.map('map').setView([-22.9068, -43.1729], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: 'Map data © OpenStreetMap'
-    }).addTo(map);
-
-    // Inicializa mapa secundário
     var mapStreet = L.map('mapStreet').setView([-22.9068, -43.1729], 12);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: 'Map data © OpenStreetMap'
-    }).addTo(mapStreet);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: 'Map data © OpenStreetMap' }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: 'Map data © OpenStreetMap' }).addTo(mapStreet);
 
-    // Função para gerar placa fictícia (5 números + 3 letras)
+    // Função para gerar placa fictícia
     function gerarPlaca() {
       const numeros = Math.floor(10000 + Math.random() * 90000).toString();
       const letras = Array(3).fill(0).map(() => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
@@ -59,7 +79,7 @@
     // Locais fictícios
     const locais = ["Depósito Central", "Cliente A", "Cliente B", "Cliente C", "Cliente D"];
 
-    // Criar 20 veículos
+    // Criar veículos
     var vehicles = [];
     for (let i = 1; i <= 20; i++) {
       vehicles.push({
@@ -71,23 +91,32 @@
         rota: locais.slice(),
         localAtual: locais[0],
         status: "Rodando",
-        tempoInicio: Date.now()
+        tempoInicio: Date.now(),
+        entregas: 0,
+        verificacoes: 0
       });
     }
 
-    // Marcadores mapa principal
-    var markers = {};
+    // Marcadores com ícones personalizados
+    var markers = {}, markersStreet = {};
     vehicles.forEach(v => {
-      markers[v.id] = L.marker([v.lat, v.lng]).addTo(map).bindPopup(v.name + " - Placa: " + v.placa);
+      var icon = L.divIcon({
+        className: 'custom-icon',
+        html: `<div>${v.id}</div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+      });
+
+      markers[v.id] = L.marker([v.lat, v.lng], { icon: icon })
+        .addTo(map)
+        .bindTooltip(v.name + " - Placa: " + v.placa, { permanent: false, direction: "top" });
+
+      markersStreet[v.id] = L.marker([v.lat, v.lng], { icon: icon })
+        .addTo(mapStreet)
+        .bindTooltip(v.name + " - Placa: " + v.placa, { permanent: false, direction: "top" });
     });
 
-    // Marcadores mapa secundário
-    var markersStreet = {};
-    vehicles.forEach(v => {
-      markersStreet[v.id] = L.marker([v.lat, v.lng]).addTo(mapStreet).bindPopup(v.name + " - Placa: " + v.placa);
-    });
-
-    // Atualizar painel de rotas
+    // Painel Rotas
     function atualizarPainel() {
       const painel = document.getElementById('painel');
       painel.innerHTML = '<h3>Rotas de Transporte</h3>';
@@ -100,15 +129,14 @@
           Placa: ${v.placa}<br>
           Local: ${v.localAtual}<br>
           Status: ${v.status}<br>
-          Tempo ${v.status.toLowerCase()}: ${tempoAtual}s
+          Tempo ${v.status.toLowerCase()}: ${tempoAtual}s<br>
+          Entregas: ${v.entregas}
         `;
         painel.appendChild(div);
       });
     }
 
-    atualizarPainel();
-
-    // Atualizar painel de segurança
+    // Painel Segurança
     function atualizarPainelSeguranca() {
       const painel = document.getElementById('painelSeguranca');
       painel.innerHTML = '<h3>Painel de Segurança</h3>';
@@ -128,6 +156,7 @@
       });
     }
 
+    atualizarPainel();
     atualizarPainelSeguranca();
 
     // Imagens fictícias
@@ -142,18 +171,43 @@
       "https://picsum.photos/800/300?random=203"
     ];
 
+       // Dashboard
+    let totalEntregas = 0;
+    let totalVerificacoes = 0;
+
+    function atualizarDashboard() {
+      document.getElementById('totalEntregas').innerText = totalEntregas;
+      document.getElementById('totalVerificacoes').innerText = totalVerificacoes;
+
+      let somaRodando = 0, somaParado = 0, count = 0;
+      vehicles.forEach(v => {
+        const tempoAtual = (Date.now() - v.tempoInicio) / 1000;
+        if (v.status === "Rodando") somaRodando += tempoAtual;
+        else somaParado += tempoAtual;
+        count++;
+      });
+      document.getElementById('tempoRodando').innerText = (somaRodando / count).toFixed(1);
+      document.getElementById('tempoParado').innerText = (somaParado / count).toFixed(1);
+    }
+
     // Funções de câmera
     function verCamera(id) {
       const camera = document.getElementById('cameraView');
       camera.src = imagensCamera[Math.floor(Math.random() * imagensCamera.length)];
+      totalVerificacoes++;
+      vehicles.find(v => v.id === id).verificacoes++;
+      atualizarDashboard();
     }
 
     function verHistorico(id) {
       const camera = document.getElementById('cameraView');
       camera.src = imagensHistorico[Math.floor(Math.random() * imagensHistorico.length)];
+      totalVerificacoes++;
+      vehicles.find(v => v.id === id).verificacoes++;
+      atualizarDashboard();
     }
 
-    // Simulação de movimento
+    // Simulação de movimento e entregas
     setInterval(() => {
       vehicles.forEach(v => {
         if (v.status === "Rodando") {
@@ -166,6 +220,8 @@
             v.status = "Parado";
             v.localAtual = v.rota[Math.floor(Math.random() * v.rota.length)];
             v.tempoInicio = Date.now();
+            v.entregas++;
+            totalEntregas++;
           }
         } else {
           if (Math.random() < 0.3) {
@@ -176,7 +232,11 @@
         }
       });
       atualizarPainel();
+      atualizarDashboard();
     }, 3000);
+
+    // Atualiza dashboard periodicamente
+    setInterval(atualizarDashboard, 5000);
   </script>
 </body>
 </html>
