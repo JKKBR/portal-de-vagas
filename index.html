@@ -105,10 +105,14 @@
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    function mostrarConteudo() {
-      document.getElementById('conteudo').style.display = 'block';
-      window.scrollTo(0, document.getElementById('conteudo').offsetTop);
-    }
+  function mostrarConteudo() {
+    document.getElementById('conteudo').style.display = 'block';
+    window.scrollTo(0, document.getElementById('conteudo').offsetTop);
+    // Força o Leaflet a recalcular o tamanho do mapa
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 300);
+  }
 
     var map = L.map('map').setView([-22.9068, -43.1729], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: 'Map data © OpenStreetMap' }).addTo(map);
